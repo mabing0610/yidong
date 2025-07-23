@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>简约图片编辑器 | 苹果风格</title>
+	<!-- 引入 Tailwind CSS -->
+	<script src="https://cdn.tailwindcss.com"></script>
+	<!-- 引入 Font Awesome -->
+	<link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+
+	<!-- 配置 Tailwind -->
+	<script>
+		tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0071e3', // 苹果蓝
+                        secondary: '#f5f5f7', // 苹果灰
+                        dark: '#1d1d1f', // 苹果黑
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+                        custom: ['方正大标宋简体', '-apple-system', 'sans-serif'], // 添加自定义字体
+                    },
+                },
+            }
+        }
+	</script>
+
+	<!-- 自定义工具类 -->
+	<style type="text/tailwindcss">
+		@layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .backdrop-blur-sm {
+                backdrop-filter: blur(4px);
+            }
+            .transition-all-300 {
+                transition: all 0.3s ease;
+            }
+            .shadow-soft {
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+            }
+            .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+            }
+            .scrollbar-hide {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+            .editor-tabs {
+                scroll-snap-type: x mandatory;
+            }
+            .editor-tab {
+                scroll-snap-align: start;
+            }
+            .fixed-top {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                z-index: 40;
+            }
+            .overflow-hidden-strong {
+                overflow: hidden !important;
+            }
+        }
+    </style>
+
+	<style>
+		body {
+			background-color: #f9f9f9;
+		}
+
+		/* 引入自定义字体 */
+		@font-face {
+			font-family: '方正大标宋简体';
+			src: url('/resources/upload/a0a17a1f69a505a/1749793109678/方正大标宋简体.ttf') format('truetype');
+			font-weight: normal;
+			font-style: normal;
+		}
+
+		/* 图片上传区域样式 */
+		.drop-area {
+			border: 2px dashed #d1d5db;
+			border-radius: 0.75rem;
+			transition: all 0.2s ease;
+		}
+
+		.drop-area:hover {
+			border-color: #0071e3;
+			background-color: rgba(0, 113, 227, 0.05);
+		}
+
+		/* 图片预览区域样式 */
+		.preview-container {
+			position: relative;
+			overflow: hidden !important;
+			border-radius: 0.75rem;
+			box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+			z-index: 1;
+		}
+
+		/* 预览区域包装器样式 */
+		.preview-wrapper {
+			overflow: hidden;
+			border-radius: 0.75rem;
+		}
+
+		/* 文字编辑样式 */
+		.text-layer {
+			position: absolute;
+			left: 50%;
+			top: 68%;
+			transform: translate(-50%, -50%);
+			text-align: center;
+			pointer-events: none;
+			user-select: none;
+			white-space: nowrap;
+		}
+
+		.text-line {
+			display: block;
+			text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+			color: white;
+		}
+
+		/* 第一行文字 - 使用自定义网络字体 */
+		.text-line-1 {
+			font-family: '方正大标宋简体', -apple-system, sans-serif;
+			font-size: 22px;
+			font-weight: 900;
+			margin-bottom: 0.5px;
+		}
+
+		/* 第二行文字 */
+		.text-line-2 {
+			font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+			font-size: 7px;
+			font-weight: 300;
+		}
+
+		/* 滑块样式 */
+		input[type="range"] {
+			-webkit-appearance: none;
+			height: 6px;
+			border-radius: 5px;
+			background: #e0e0e0;
+			outline: none;
+		}
+
+		input[type="range"]::-webkit-slider-thumb {
+			-webkit-appearance: none;
+			width: 18px;
+			height: 18px;
+			border-radius: 50%;
+			background: #0071e3;
+			cursor: pointer;
+			transition: all 0.15s ease;
+		}
+
+		input[type="range"]::-webkit-slider-thumb:hover {
+			transform: scale(1.1);
+			box-shadow: 0 0 0 8px rgba(0, 113, 227, 0.1);
+		}
+
+		/* 按钮悬停效果 */
+		.btn-hover-effect:hover {
+			transform: translateY(-1px);
+			box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+		}
+
+		/* 加载动画 */
+		.loader {
+			border-top-color: #0071e3;
+			animation: spinner 0.6s linear infinite;
+		}
+
+		@keyframes spinner {
+			0% {
+				transform: rotate(0deg);
+			}
+
+			100% {
+				transform: rotate(360deg);
+			}
+		}
+
+		/* 响应式布局 */
+		@media (max-width: 640px) {
+			.preview-wrapper {
+				position: sticky;
+				top: 0;
+				z-index: 30;
+				background-color: white;
+				padding: 0.5rem;
+				box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+			}
+		}
+
+		/* 修改为上下布局 */
+		.main-layout {
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+		}
+
+		/* 确保照片层在放大时不会超出容器 */
+		#photoLayer {
+			transition: transform 0.2s ease;
+			max-width: 100%;
+			max-height: 100%;
+		}
+
+		/* 调整遮罩层透明度 */
+		#maskLayer {
+			opacity: 0.8;
+		}
+	</style>
+</head>
+
+<body class="font-sans text-dark min-h-screen flex flex-col">
+
+	<!-- 主内容区 -->
+	<main class="flex-grow container mx-auto px-3 py-4">
+		<div class="max-w-4xl mx-auto">
+			<!-- 修改为上下布局容器 -->
+			<div class="main-layout">
+				<!-- 预览区域 - 悬浮固定 -->
+				<div class="preview-side preview-wrapper mb-3">
+					<div class="bg-white rounded-xl shadow-soft p-2">
+						<div class="aspect-square w-full bg-gray-100 flex items-center justify-center relative overflow-hidden-strong"
+							id="previewContainer">
+							<!-- 照片层 -->
+							<img id="photoLayer" class="absolute inset-0 w-full h-full object-contain cursor-move overflow-hidden-strong" src="" alt="">
+
+							<!-- 遮罩层 -->
+							<img id="maskLayer" class="absolute inset-0 w-full h-full object-cover opacity-80" src="/resources/upload/a0a17a1f69a505a/1749449972640.png" alt="">
+
+							<!-- 文字层 -->
+							<div id="textLayer" class="text-layer">
+								<div id="textLine1Display" class="text-line text-line-1">托尼</div>
+								<!-- 第一行文字使用自定义网络字体 -->
+								<div id="textLine2Display" class="text-line text-line-2">TUO NI</div>
+								<!-- 第二行文字使用系统字体 -->
+							</div>
+
+							<!-- 加载状态 -->
+							<div id="loadingOverlay"
+								class="absolute inset-0 bg-white/80 flex items-center justify-center hidden">
+								<div class="loader w-8 h-8 rounded-full border-3 border-gray-200"></div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- 上传和文字设置合并区域 -->
+				<div class="settings-side bg-white rounded-xl shadow-soft mb-3 p-3">
+					<!-- 照片上传 -->
+					<div class="mb-3">
+						<div class="drop-area p-4 text-center cursor-pointer" id="photoDropArea">
+							<input type="file" id="photoInput" accept="image/*" class="hidden">
+							<i class="fa fa-cloud-upload text-gray-400 text-xl mb-1"></i>
+							<p class="text-gray-500 text-xs">点击或拖拽照片到此处</p>
+							<p class="text-gray-400 text-xs mt-0.5">支持 PNG, JPG 格式</p>
+						</div>
+						<button id="changePhotoBtn" class="w-full mt-1.5 py-1.5 px-3 bg-gray-100 text-gray-700 rounded-lg text-xs hover:bg-gray-200 transition-all-300 hidden">
+              更换照片
+            </button>
+						<!-- 新增显示文件名的元素 -->
+						<p id="fileNameDisplay" class="text-gray-500 text-xs mt-1.5"></p>
+					</div>
+
+					<!-- 文字设置 -->
+					<div class="space-y-2">
+						<div class="grid grid-cols-2 gap-2">
+							<!-- 第一行文字 -->
+							<div>
+								<label for="textLine1" class="block text-xs font-medium text-gray-700 mb-0.5">第一行文字</label>
+								<input type="text" id="textLine1" class="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all-300 text-sm" placeholder="例如：托尼">
+                            </div>
+
+								<!-- 第二行文字 -->
+								<div>
+									<label for="textLine2" class="block text-xs font-medium text-gray-700 mb-0.5">第二行文字</label>
+									<input type="text" id="textLine2" class="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all-300 text-sm" placeholder="例如：TUO NI">
+                            </div>
+								</div>
+
+								<!-- 预览文字选项 -->
+								<div class="flex items-center space-x-1.5 mt-1">
+									<input type="checkbox" id="showTextInPreview" class="" checked>
+									<label for="showTextInPreview" class="text-xs font-medium text-gray-700">信息无误</label>
+								</div>
+							</div>
+
+							<!-- 新增：图片位置和缩放调整滑块 -->
+							<div class="mt-3 pt-3 border-t border-gray-100">
+								<h3 class="text-xs font-medium text-gray-700 mb-2">图片调整</h3>
+
+								<!-- 滑块组 -->
+								<div class="space-y-2">
+									<!-- 缩放滑块 -->
+									<div>
+										<div class="flex justify-between mb-0.5">
+											<label for="scaleSlider" class="text-xs text-gray-500">图片大小</label>
+											<span id="scaleValue" class="text-xs font-medium text-primary">100%</span>
+										</div>
+										<input type="range" id="scaleSlider" min="50" max="200" value="100" class="w-full">
+                            </div>
+
+										<!-- 横向位置滑块 -->
+										<div>
+											<div class="flex justify-between mb-0.5">
+												<label for="positionX" class="text-xs text-gray-500">横向位置</label>
+												<span id="positionXValue" class="text-xs font-medium text-primary">0%</span>
+											</div>
+											<input type="range" id="positionX" min="-50" max="50" value="0" class="w-full">
+                            </div>
+
+											<!-- 纵向位置滑块 -->
+											<div>
+												<div class="flex justify-between mb-0.5">
+													<label for="positionY" class="text-xs text-gray-500">纵向位置</label>
+													<span id="positionYValue" class="text-xs font-medium text-primary">0%</span>
+												</div>
+												<input type="range" id="positionY" min="-50" max="50" value="0" class="w-full">
+                            </div>
+											</div>
+										</div>
+									</div>
+
+									<!-- 下载区域 -->
+									<div class="bg-white rounded-xl shadow-soft p-3">
+										<div class="text-center">
+											<button id="downloadBtn" class="bg-primary hover:bg-primary/90 text-white font-medium py-2 px-5 rounded-lg transition-all-300 btn-hover-effect flex items-center justify-center mx-auto w-full text-sm">
+            <i class="fa fa-download mr-1.5"></i> 保存头像
+          </button>
+											<p class="text-gray-500 text-xs mt-1">使用中有任何问题或建议联系网络部</p>
+										</div>
+									</div>
+								</div>
+							</div>
+	</main>
+
+	<!-- 页脚 -->
+	<footer class="bg-secondary py-3 mt-6">
+		<div class="container mx-auto px-3 text-center text-gray-500 text-xs">
+
+		</div>
+	</footer>
+
+	<script>
+		// DOM 元素
+        const photoDropArea = document.getElementById('photoDropArea');
+        const photoInput = document.getElementById('photoInput');
+        const photoLayer = document.getElementById('photoLayer');
+        const changePhotoBtn = document.getElementById('changePhotoBtn');
+
+        const maskLayer = document.getElementById('maskLayer');
+
+        const textLine1 = document.getElementById('textLine1');
+        const textLine2 = document.getElementById('textLine2');
+        const textLine1Display = document.getElementById('textLine1Display');
+        const textLine2Display = document.getElementById('textLine2Display');
+
+        const textLayer = document.getElementById('textLayer');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+
+        // 新增显示文件名的元素
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+
+        // 新增：图片位置和缩放滑块
+        const scaleSlider = document.getElementById('scaleSlider');
+        const scaleValue = document.getElementById('scaleValue');
+        const positionXSlider = document.getElementById('positionX');
+        const positionYSlider = document.getElementById('positionY');
+        const positionXValue = document.getElementById('positionXValue');
+        const positionYValue = document.getElementById('positionYValue');
+
+        // 图片位置和缩放变量
+        let currentX = 0;
+        let currentY = 0;
+        let currentScale = 100; // 初始缩放比例为100%
+
+        let selectedOutputSize = 2000; // 默认输出尺寸为 2000x2000
+        let previewContainerSize = 0; // 预览容器尺寸
+
+        // 存储图片的原始尺寸和比例
+        let originalImageWidth = 0;
+        let originalImageHeight = 0;
+        let imageRatio = 1; // 宽高比
+
+        // 图片处理函数
+        function handleImageUpload(file, layerImg, changeBtn) {
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                layerImg.src = e.target.result;
+                changeBtn.classList.remove('hidden');
+                // 显示文件名
+                fileNameDisplay.textContent = `已选择文件: ${file.name}`;
+
+                // 图片加载完成后执行更新
+                layerImg.onload = function () {
+                    // 获取图片的原始尺寸
+                    originalImageWidth = this.naturalWidth;
+                    originalImageHeight = this.naturalHeight;
+                    imageRatio = originalImageWidth / originalImageHeight;
+
+                    // 计算图片比例，确保它能完整显示在预览窗口中
+                    adjustImageToPreviewSize();
+                    updateCanvas();
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 调整图片大小以适应预览窗口
+        function adjustImageToPreviewSize() {
+            if (!photoLayer.src || originalImageWidth === 0) return;
+
+            const container = document.getElementById('previewContainer');
+            const containerWidth = container.offsetWidth;
+            const containerHeight = container.offsetHeight;
+
+            // 获取图片的原始尺寸
+            const imgWidth = originalImageWidth;
+            const imgHeight = originalImageHeight;
+
+            // 计算图片的宽高比
+            const imgRatio = imgWidth / imgHeight;
+            const containerRatio = containerWidth / containerHeight;
+
+            let scaleFactor;
+
+            // 根据宽高比决定如何缩放图片
+            if (imgRatio > containerRatio) {
+                // 图片更宽，以宽度为基准进行缩放
+                scaleFactor = containerWidth / imgWidth;
+            } else {
+                // 图片更高，以高度为基准进行缩放
+                scaleFactor = containerHeight / imgHeight;
+            }
+
+            // 设置图片位置和大小
+            currentX = 0; // 重置X位置
+            currentY = 0; // 重置Y位置
+            currentScale = scaleFactor * 100; // 设置缩放比例
+
+            // 更新滑块位置
+            scaleSlider.value = currentScale;
+            positionXSlider.value = currentX;
+            positionYSlider.value = currentY;
+
+            // 更新图片变换
+            updateImageTransform();
+        }
+
+        // 更新画布显示
+        function updateCanvas() {
+            // 获取预览容器尺寸
+            if (previewContainerSize === 0) {
+                previewContainerSize = document.getElementById('previewContainer').offsetWidth;
+            }
+
+            // 更新文字内容
+            textLine1Display.textContent = textLine1.value || '托尼';
+            textLine2Display.textContent = textLine2.value || 'TUO NI';
+
+            // 文字大小、间距、位置等可直接在 HTML 样式中修改
+            // 这里保留逻辑但不依赖用户输入更新
+            const line1Size = '22px'; // 第一行文字大小
+            const line2Size = '7px'; // 第二行文字大小
+            const spacing = '0.1px';   // 文字间距
+            const xPercent = '20%';   // 文字水平位置
+            const yPercent = '68%';   // 文字垂直位置
+
+            textLine1Display.style.fontSize = line1Size;
+            textLine2Display.style.fontSize = line2Size;
+            textLine1Display.style.marginBottom = spacing;
+            textLayer.style.left = xPercent;
+            textLayer.style.top = yPercent;
+
+            // 根据复选框状态显示/隐藏文字
+            const showText = document.getElementById('showTextInPreview').checked;
+            textLayer.style.display = showText ? 'block' : 'none';
+
+            // 更新图片位置和缩放
+            updateImageTransform();
+        }
+
+        // 更新图片位置和缩放
+        function updateImageTransform() {
+            // 应用位移和缩放
+            photoLayer.style.transform = `translate(${currentX}%, ${currentY}%) scale(${currentScale / 100})`;
+
+            // 更新滑块显示值
+            scaleValue.textContent = `${currentScale}%`;
+            positionXValue.textContent = `${currentX}%`;
+            positionYValue.textContent = `${currentY}%`;
+        }
+
+        // 下载合成图片
+        function downloadCompositeImage() {
+            loadingOverlay.classList.remove('hidden');
+
+            // 创建一个临时canvas用于合成图片
+            const canvas = document.createElement('canvas');
+            canvas.width = selectedOutputSize;
+            canvas.height = selectedOutputSize;
+            const ctx = canvas.getContext('2d');
+
+            // 确保所有图片都已加载完成
+            Promise.all([
+                loadImage(photoLayer.src),
+                loadImage(maskLayer.src)
+            ]).then(([photo, mask]) => {
+                // 绘制照片
+                if (photo) {
+                    // 应用缩放比例
+                    const scaledSize = (currentScale / 100) * canvas.width;
+
+                    // 计算居中位置，考虑缩放
+                    const centerOffset = (canvas.width - scaledSize) / 2;
+
+                    // 应用位移，确保与预览一致
+                    const positionXOffset = (currentX / 100) * canvas.width;
+                    const positionYOffset = (currentY / 100) * canvas.width;
+
+                    // 计算最终位置，考虑缩放和位移
+                    const finalX = centerOffset + positionXOffset;
+                    const finalY = centerOffset + positionYOffset;
+
+                    // 获取图片的原始尺寸和比例
+                    const imgWidth = photo.width;
+                    const imgHeight = photo.height;
+                    const imgRatio = imgWidth / imgHeight;
+
+                    // 确保图片在canvas上按原始比例显示
+                    // 计算图片在canvas上的实际显示尺寸，保持原始宽高比
+                    let displayWidth, displayHeight;
+
+                    if (imgRatio > 1) {
+                        // 图片更宽
+                        displayWidth = scaledSize;
+                        displayHeight = scaledSize / imgRatio;
+                    } else {
+                        // 图片更高
+                        displayHeight = scaledSize;
+                        displayWidth = scaledSize * imgRatio;
+                    }
+
+                    // 计算图片在canvas上的实际显示位置，确保居中
+                    const displayX = finalX + (scaledSize - displayWidth) / 2;
+                    const displayY = finalY + (scaledSize - displayHeight) / 2;
+
+                    // 绘制图片，保持原始宽高比
+                    ctx.drawImage(
+                        photo,
+                        0, 0, imgWidth, imgHeight,
+                        displayX, displayY,
+                        displayWidth, displayHeight
+                    );
+                } else {
+                    // 如果没有照片，填充背景色
+                    ctx.fillStyle = '#e0e0e0';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
+
+                // 绘制遮罩
+                if (mask) {
+                    ctx.drawImage(mask, 0, 0, canvas.width, canvas.height);
+                }
+
+                // 绘制文字 - 修改变量名避免冲突
+                const textPosX = (parseInt(textLayer.style.left) / 100) * canvas.width;
+                const textPosY = (parseInt(textLayer.style.top) / 100) * canvas.height;
+
+                // 设置文字样式
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#ffffff'; // 固定文字颜色为白色
+
+                // 计算文字大小比例
+                const line1FontSize = (parseInt('22') / previewContainerSize) * canvas.width; // 第一行文字大小
+                const line2FontSize = (parseInt('7') / previewContainerSize) * canvas.width; // 第二行文字大小
+                const lineSpacing = (parseInt('0.1') / previewContainerSize) * canvas.width; // 文字间距
+
+                // 绘制第一行文字 - 使用自定义网络字体
+                ctx.font = `${line1FontSize}px '方正大标宋简体', -apple-system, sans-serif`;
+                ctx.fontWeight = '900'; // 加粗第一行文字
+                ctx.fillText(textLine1.value || '托尼', textPosX, textPosY);
+
+                // 绘制第二行文字
+                ctx.font = `${line2FontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+                ctx.fontWeight = '300';
+                ctx.fillText(textLine2.value || 'TUO NI', textPosX, textPosY + line1FontSize + lineSpacing);
+
+                // 创建下载链接
+                const link = document.createElement('a');
+                link.download = 'avatar.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+
+                loadingOverlay.classList.add('hidden');
+            }).catch(error => {
+                console.error('下载图片时出错:', error);
+                loadingOverlay.classList.add('hidden');
+                alert('下载图片失败，请重试');
+            });
+        }
+
+        // 加载图片的辅助函数
+        function loadImage(src) {
+            return new Promise((resolve, reject) => {
+                if (!src) resolve(null);
+
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+
+                // 设置跨域选项
+                if (src.startsWith('http')) {
+                    img.crossOrigin = 'anonymous';
+                }
+
+                img.src = src;
+            });
+        }
+
+        // 照片拖动功能
+        function setupPhotoDragging() {
+            let isDragging = false;
+            let startX, startY;
+            let initialX = 0, initialY = 0;
+
+            // 鼠标事件
+            photoLayer.addEventListener('mousedown', startDrag);
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', endDrag);
+
+            // 触摸事件
+            photoLayer.addEventListener('touchstart', startDrag, { passive: false });
+            photoLayer.addEventListener('touchmove', drag, { passive: false });
+            photoLayer.addEventListener('touchend', endDrag);
+
+            function startDrag(e) {
+                e.preventDefault();
+                isDragging = true;
+
+                // 获取鼠标/触摸初始位置
+                if (e.type === 'mousedown') {
+                    startX = e.clientX;
+                    startY = e.clientY;
+                } else {
+                    startX = e.touches[0].clientX;
+                    startY = e.touches[0].clientY;
+                }
+
+                // 获取当前照片位置
+                const transform = photoLayer.style.transform;
+                const matrix = new DOMMatrix(transform);
+                initialX = matrix.e; // translateX
+                initialY = matrix.f; // translateY
+
+                // 提高照片层的层级，确保拖动时在最上层
+                photoLayer.style.zIndex = '1';
+            }
+
+            function drag(e) {
+                if (!isDragging) return;
+                e.preventDefault();
+
+                // 获取鼠标/触摸当前位置
+                let clientX, clientY;
+                if (e.type === 'mousemove') {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                } else {
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                }
+
+                // 计算位移
+                const dx = clientX - startX;
+                const dy = clientY - startY;
+
+                // 计算百分比位移
+                const containerWidth = document.getElementById('previewContainer').offsetWidth;
+                const containerHeight = document.getElementById('previewContainer').offsetHeight;
+
+                const percentX = (dx / containerWidth) * 100;
+                const percentY = (dy / containerHeight) * 100;
+
+                // 更新照片位置
+                const newX = initialX + percentX;
+                const newY = initialY + percentY;
+
+                // 限制移动范围，确保图片始终覆盖预览框
+                const maxX = 50;
+                const minX = -50;
+                const maxY = 50;
+                const minY = -50;
+
+                const clampedX = Math.max(minX, Math.min(maxX, newX));
+                const clampedY = Math.max(minY, Math.min(maxY, newY));
+
+                // 更新位置变量
+                currentX = clampedX;
+                currentY = clampedY;
+
+                // 同步滑块位置
+                positionXSlider.value = currentX;
+                positionYSlider.value = currentY;
+
+                // 应用位移
+                updateImageTransform();
+            }
+
+            function endDrag() {
+                isDragging = false;
+                // 恢复照片层的层级
+                photoLayer.style.zIndex = '0';
+            }
+        }
+
+        // 事件监听
+        // 照片上传
+        photoDropArea.addEventListener('click', () => photoInput.click());
+        photoInput.addEventListener('change', () => handleImageUpload(photoInput.files[0], photoLayer, changePhotoBtn));
+        changePhotoBtn.addEventListener('click', () => photoInput.click());
+
+        // 文字设置监听
+        textLine1.addEventListener('input', updateCanvas);
+        textLine2.addEventListener('input', updateCanvas);
+
+        // 预览文字选项监听
+        document.getElementById('showTextInPreview').addEventListener('change', updateCanvas);
+
+        // 新增：图片位置和缩放滑块监听
+        scaleSlider.addEventListener('input', function () {
+            currentScale = parseInt(this.value);
+            updateImageTransform();
+        });
+
+        positionXSlider.addEventListener('input', function () {
+            currentX = parseInt(this.value);
+            updateImageTransform();
+        });
+
+        positionYSlider.addEventListener('input', function () {
+            currentY = parseInt(this.value);
+            updateImageTransform();
+        });
+
+        // 下载按钮
+        downloadBtn.addEventListener('click', downloadCompositeImage);
+
+        // 窗口大小改变时重新计算预览容器尺寸
+        window.addEventListener('resize', () => {
+            previewContainerSize = 0; // 重置尺寸，下次更新时重新获取
+            updateCanvas();
+        });
+
+        // 初始化照片拖动功能
+        setupPhotoDragging();
+
+        // 初始设置
+        updateCanvas();
+	</script>
+</body>
+
+</html>
